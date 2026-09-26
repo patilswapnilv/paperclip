@@ -1074,6 +1074,10 @@ An upgrade may encounter an already-active agent-owned recovery action. Papercli
 
 Create an issue-backed recovery action only when a separate issue is the right execution object. In that fallback form, the source issue remains visible and is blocked on the recovery issue when blocking is necessary for correctness. The recovery owner must restore a live path, resolve the source issue manually, delegate real follow-up work, or record the reason the signal is a false positive.
 
+#### Terminal recovery edge clear (Recovery Task Contract)
+
+Issue-backed recovery (`stranded_issue_recovery`, `harness_liveness_escalation`) may hold a `blocks` edge to its source while the recovery work is active. When that recovery issue transitions to `done` or `cancelled`, Paperclip must clear that edge automatically. Cancelled recovery blockers must not remain unresolved against the source; leaving them in place creates a silent deadlock. Ordinary (non-recovery) cancelled blockers still require an explicit relation change.
+
 ### Human Escalation
 
 Human escalation is required when the next safe action depends on board judgment, budget/approval policy, or information unavailable to the control plane.

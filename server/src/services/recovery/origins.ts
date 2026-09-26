@@ -48,6 +48,36 @@ export function parseIssueGraphLivenessIncidentKey(incidentKey: string | null | 
   return { companyId, issueId, state, leafIssueId };
 }
 
+/**
+ * Issue-backed recovery work may temporarily block its source issue.
+ * When that recovery issue becomes terminal (`done` / `cancelled`), the
+ * control plane must clear that blocks edge so the source cannot deadlock
+ * on a finished or abandoned recovery task.
+ *
+ * Returns the source issue id when `originKind`/`originId` identify an
+ * issue-backed recovery that may hold such an edge; otherwise null.
+ */
+export function resolveIssueBackedRecoverySourceIssueId(input: {
+  companyId: string;
+  originKind: string | null | undefined;
+  originId: string | null | undefined;
+}): string | null {
+  if (!input.originKind || !input.originId) return null;
+
+  if (input.originKind === RECOVERY_ORIGIN_KINDS.strandedIssueRecovery) {
+    return input.originId;
+  }
+
+  if (input.originKind === RECOVERY_ORIGIN_KINDS.issueGraphLivenessEscalation) {
+    const parsed = parseIssueGraphLivenessIncidentKey(input.originId);
+    if (parsed?.issueId && parsed.companyId === input.companyId) {
+      return parsed.issueId;
+    }
+  }
+
+  return null;
+}
+
 export function buildIssueGraphLivenessLeafKey(input: {
   companyId: string;
   state: string;

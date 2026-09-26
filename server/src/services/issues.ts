@@ -175,6 +175,7 @@ import {
 import {
   parseIssueGraphLivenessIncidentKey,
   RECOVERY_ORIGIN_KINDS,
+  resolveIssueBackedRecoverySourceIssueId,
 } from "./recovery/origins.js";
 import {
   classifyIssueGraphLiveness,
@@ -11127,26 +11128,29 @@ export function issueService(db: Db) {
               : {}),
           },
         );
+        // Recovery Task Contract: issue-backed recovery may block its source
+        // while active, but must not leave a terminal recovery edge that
+        // deadlocks the source (done or cancelled). Applies to both
+        // harness_liveness_escalation and stranded_issue_recovery origins.
         if (
           (issueData.status === "done" || issueData.status === "cancelled") &&
-          existing.status !== issueData.status &&
-          existing.originKind ===
-            RECOVERY_ORIGIN_KINDS.issueGraphLivenessEscalation
+          existing.status !== issueData.status
         ) {
-          const parsedIncident = parseIssueGraphLivenessIncidentKey(
-            existing.originId,
+          const recoverySourceIssueId = resolveIssueBackedRecoverySourceIssueId(
+            {
+              companyId: existing.companyId,
+              originKind: existing.originKind,
+              originId: existing.originId,
+            },
           );
-          if (
-            parsedIncident?.issueId &&
-            parsedIncident.companyId === existing.companyId
-          ) {
+          if (recoverySourceIssueId) {
             await tx
               .delete(issueRelations)
               .where(
                 and(
                   eq(issueRelations.companyId, existing.companyId),
                   eq(issueRelations.issueId, existing.id),
-                  eq(issueRelations.relatedIssueId, parsedIncident.issueId),
+                  eq(issueRelations.relatedIssueId, recoverySourceIssueId),
                   eq(issueRelations.type, "blocks"),
                 ),
               );
